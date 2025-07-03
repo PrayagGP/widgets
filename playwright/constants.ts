@@ -18,3 +18,24 @@ export const LOGIN_MODE = {
 };
 
 export const LONG_WAIT = 40000;
+
+export const CALL_URL = 'https://web.webex.com/calling?calling';
+
+export const TASK_TYPES = {
+  CALL: 'Call',
+  CHAT: 'Chat',
+  EMAIL: 'Email',
+  SOCIAL: 'Social'
+}
+
+export const CHAT_URL = 'https://widgets.webex.com/chat-client';
+
+export const WRAPUP_REASONS = {
+  SALE: 'Sale',
+  RESOLVED: 'Resolved',
+}
+
+export const RONA_OPTIONS = {
+  AVAILABLE: 'Available',
+  IDLE: 'Idle',
+}

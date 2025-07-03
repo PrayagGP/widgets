@@ -26741,6 +26741,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"nodemailer@npm:^7.0.4":
+  version: 7.0.4
+  resolution: "nodemailer@npm:7.0.4"
+  checksum: 10c0/ea6e1ed581f9f5519017430105eb37077e8a028805c6227166aefcaa1fd035063fd4dec84f535408b52bdf7a952e79ade66f14d1cf2fbf98790050d8161934d6
+  languageName: node
+  linkType: hard
+
 "nopt@npm:*, nopt@npm:^8.0.0":
   version: 8.0.0
   resolution: "nopt@npm:8.0.0"
@@ -35092,6 +35099,7 @@ __metadata:
     jest: "npm:29.7.0"
     jest-canvas-mock: "npm:^2.5.2"
     node-gyp: "npm:^10.2.0"
+    nodemailer: "npm:^7.0.4"
     os-browserify: "npm:^0.3.0"
     process: "npm:^0.11.10"
     querystring-es3: "npm:^0.2.1"
