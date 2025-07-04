@@ -1,4 +1,3 @@
-// filepath: /Users/prayprab/UI_automation/widgets/playwright/basic-task-controls-test.spec.ts
 import { test, expect, Page, BrowserContext } from '@playwright/test';
 import {
   enableAllWidgets,
@@ -15,12 +14,9 @@ import {
   acceptIncomingTask,
   loginExtension
 } from './Utils/incomingTaskUtils';
-import { callTaskControlCheck, chatTaskControlCheck, emailTaskControlCheck } from './Utils/taskControlUtils';
+import { callTaskControlCheck, chatTaskControlCheck, emailTaskControlCheck, holdCallToggle, recordCallToggle, setupConsoleLogging, clearCapturedLogs, verifyHoldLogs, verifyRecordingLogs, verifyEndLogs } from './Utils/taskControlUtils';
 import { submitWrapup } from './Utils/wrapupUtils';
 import { USER_STATES, LOGIN_MODE, TASK_TYPES, WRAPUP_REASONS } from './constants';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 let page: Page;
 let context: BrowserContext;
@@ -60,9 +56,16 @@ const pageSetup = async (page: Page, loginMode: string) => {
   await page.waitForTimeout(2000);
   await changeUserState(page, USER_STATES.AVAILABLE);
   await page.waitForTimeout(4000);
+  
+  // Setup console logging for callbacks
+  setupConsoleLogging(page);
 };
 
 test.describe('Basic Task Controls Tests', () => {
+  test.beforeEach(() => {
+    clearCapturedLogs();
+  });
+
   test.beforeAll(async ({ browser }) => {
     context = await browser.newContext();
     context2 = await browser.newContext();
@@ -95,7 +98,7 @@ test.describe('Basic Task Controls Tests', () => {
     await context2.close();
   });
 
-  test('Call task - verify all control buttons are visible, end call, and wrap up', async () => {
+  test('Call task - create call and verify all control buttons are visible', async () => {
     // Create call task
     await createCallTask(callerPage);
     await changeUserState(page, USER_STATES.AVAILABLE);
@@ -113,21 +116,87 @@ test.describe('Basic Task Controls Tests', () => {
     await verifyCurrentState(page, USER_STATES.ENGAGED);
     
     // Use utility to check all call control buttons are visible
-    await callTaskControlCheck(page);
+    try {
+      await callTaskControlCheck(page);
+    } catch (error) {
+      throw new Error(`Call control buttons verification failed: ${error.message}`);
+    }
+  });
+
+  test('Call task - verify hold and resume functionality with callbacks', async () => {
+    // Verify we're still in an engaged call from previous test
+    await verifyCurrentState(page, USER_STATES.ENGAGED);
     
-    // End the call by clicking the end button
-    console.log('Ending call task...');
-    const endButton = page.getByTestId('call-control:end-call').nth(0);
-    await endButton.waitFor({ state: 'visible', timeout: 30000 });
-    await endButton.click();
-    await page.waitForTimeout(3000);
+    try {
+      // Put the call on hold
+      await holdCallToggle(page);
+      await page.waitForTimeout(2000);
+      
+      // Verify hold callback logs
+      verifyHoldLogs(true);
+      clearCapturedLogs(); // Clear logs for next verification
+
+      // Resume the call from hold
+      await holdCallToggle(page);
+      await page.waitForTimeout(2000);
+      
+      // Verify resume callback logs
+      verifyHoldLogs(false);
+      clearCapturedLogs(); // Clear logs for next verification
+      
+    } catch (error) {
+      throw new Error(`Hold/Resume functionality verification failed: ${error.message}`);
+    }
+  });
+
+  test('Call task - verify recording pause and resume functionality with callbacks', async () => {
+    // Verify we're still in an engaged call from previous tests
+    await verifyCurrentState(page, USER_STATES.ENGAGED);
     
-    // Submit wrapup
-    console.log('Submitting wrapup for call task...');
-    await submitWrapup(page, WRAPUP_REASONS.RESOLVED);
-    await page.waitForTimeout(2000);
+    try {
+      // Pause the call recording
+      await recordCallToggle(page);
+      await page.waitForTimeout(2000);
+      
+      // Verify pause recording callback logs
+      verifyRecordingLogs(false);
+      clearCapturedLogs(); // Clear logs for next verification
+      
+      // Resume the call recording
+      await recordCallToggle(page);
+      await page.waitForTimeout(2000);
+      
+      // Verify resume recording callback logs
+      verifyRecordingLogs(true);
+      clearCapturedLogs(); // Clear logs for next verification
+      
+    } catch (error) {
+      throw new Error(`Recording pause/resume functionality verification failed: ${error.message}`);
+    }
+  });
+
+  test('Call task - end call and complete wrapup', async () => {
+    // Verify we're still in an engaged call from previous tests
+    await verifyCurrentState(page, USER_STATES.ENGAGED);
     
-    console.log('Call task control test completed successfully - all buttons verified, call ended, and wrapped up');
+    try {
+      // End the call by clicking the end button
+      const endButton = page.getByTestId('call-control:end-call').nth(0);
+      await endButton.waitFor({ state: 'visible', timeout: 30000 });
+      await endButton.click();
+      await page.waitForTimeout(3000);
+      
+      // Verify onEnd callback logs
+      verifyEndLogs();
+      clearCapturedLogs(); // Clear logs for next verification
+      
+      // Submit wrapup
+      await submitWrapup(page, WRAPUP_REASONS.RESOLVED);
+      await page.waitForTimeout(2000);
+      
+    } catch (error) {
+      throw new Error(`Call task end and wrapup failed: ${error.message}`);
+    }
   });
 
   test('Chat task - verify transfer and end buttons are visible, end chat, and wrap up', async () => {
@@ -147,22 +216,26 @@ test.describe('Basic Task Controls Tests', () => {
     // Verify agent state changed to engaged
     await verifyCurrentState(page, USER_STATES.ENGAGED);
     
-    // Use utility to check chat control buttons are visible
-    await chatTaskControlCheck(page);
-    
-    // End the chat by clicking the end button
-    console.log('Ending chat task...');
-    const endButton = page.getByTestId('call-control:end-call').nth(0);
-    await endButton.waitFor({ state: 'visible', timeout: 30000 });
-    await endButton.click();
-    await page.waitForTimeout(3000);
-    
-    // Submit wrapup
-    console.log('Submitting wrapup for chat task...');
-    await submitWrapup(page, WRAPUP_REASONS.RESOLVED);
-    await page.waitForTimeout(2000);
-    
-    console.log('Chat task control test completed successfully - transfer and end buttons verified, chat ended, and wrapped up');
+    try {
+      // Use utility to check chat control buttons are visible
+      await chatTaskControlCheck(page);
+      
+      // End the chat by clicking the end button
+      const endButton = page.getByTestId('call-control:end-call').nth(0);
+      await endButton.waitFor({ state: 'visible', timeout: 30000 });
+      await endButton.click();
+      await page.waitForTimeout(3000);
+      
+      // Verify onEnd callback logs
+      verifyEndLogs();
+      clearCapturedLogs(); // Clear logs for next verification
+      
+      // Submit wrapup
+      await submitWrapup(page, WRAPUP_REASONS.RESOLVED);
+      await page.waitForTimeout(2000);
+    } catch (error) {
+      throw new Error(`Chat task control test failed: ${error.message}`);
+    }
   });
 
   test('Email task - verify transfer and end buttons are visible, end email, and wrap up', async () => {
@@ -182,21 +255,25 @@ test.describe('Basic Task Controls Tests', () => {
     // Verify agent state changed to engaged
     await verifyCurrentState(page, USER_STATES.ENGAGED);
     
-    // Use utility to check email control buttons are visible
-    await emailTaskControlCheck(page);
-    
-    // End the email by clicking the end button
-    console.log('Ending email task...');
-    const endButton = page.getByTestId('call-control:end-call').nth(0);
-    await endButton.waitFor({ state: 'visible', timeout: 30000 });
-    await endButton.click();
-    await page.waitForTimeout(3000);
-    
-    // Submit wrapup
-    console.log('Submitting wrapup for email task...');
-    await submitWrapup(page, WRAPUP_REASONS.RESOLVED);
-    await page.waitForTimeout(2000);
-    
-    console.log('Email task control test completed successfully - transfer and end buttons verified, email ended, and wrapped up');
+    try {
+      // Use utility to check email control buttons are visible
+      await emailTaskControlCheck(page);
+      
+      // End the email by clicking the end button
+      const endButton = page.getByTestId('call-control:end-call').nth(0);
+      await endButton.waitFor({ state: 'visible', timeout: 30000 });
+      await endButton.click();
+      await page.waitForTimeout(3000);
+      
+      // Verify onEnd callback logs
+      verifyEndLogs();
+      clearCapturedLogs(); // Clear logs for next verification
+      
+      // Submit wrapup
+      await submitWrapup(page, WRAPUP_REASONS.RESOLVED);
+      await page.waitForTimeout(2000);
+    } catch (error) {
+      throw new Error(`Email task control test failed: ${error.message}`);
+    }
   });
 });
