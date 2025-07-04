@@ -4,11 +4,15 @@ export const USER_STATES = {
   MEETING: 'Meeting',
   AVAILABLE: 'Available',
   LUNCH: 'Lunch Break',
+  RONA: 'RONA',
+  ENGAGED: 'Engaged',
 };
 
 export const THEME_COLORS = {
   AVAILABLE: 'rgb(206, 245, 235)',
   MEETING: 'rgba(0, 0, 0, 0.11)',
+  ENGAGED: 'rgb(255, 235, 194)',
+  RONA: 'rgb(250, 233, 234)'
 };
 
 export const LOGIN_MODE = {
