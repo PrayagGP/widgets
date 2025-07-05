@@ -14,7 +14,7 @@ import {
   acceptIncomingTask,
   loginExtension
 } from './Utils/incomingTaskUtils';
-import { callTaskControlCheck, chatTaskControlCheck, emailTaskControlCheck, holdCallToggle, recordCallToggle, setupConsoleLogging, clearCapturedLogs, verifyHoldLogs, verifyRecordingLogs, verifyEndLogs } from './Utils/taskControlUtils';
+import { callTaskControlCheck, chatTaskControlCheck, emailTaskControlCheck, holdCallToggle, recordCallToggle, setupConsoleLogging, clearCapturedLogs, verifyHoldLogs, verifyRecordingLogs, verifyEndLogs, verifyHoldTimer} from './Utils/taskControlUtils';
 import { submitWrapup } from './Utils/wrapupUtils';
 import { USER_STATES, LOGIN_MODE, TASK_TYPES, WRAPUP_REASONS } from './constants';
 
@@ -128,6 +128,9 @@ test.describe('Basic Task Controls Tests', () => {
     await verifyCurrentState(page, USER_STATES.ENGAGED);
     
     try {
+      // Verify hold timer is not visible initially
+      await verifyHoldTimer(page, false);
+      
       // Put the call on hold
       await holdCallToggle(page);
       await page.waitForTimeout(2000);
@@ -135,7 +138,10 @@ test.describe('Basic Task Controls Tests', () => {
       // Verify hold callback logs
       verifyHoldLogs(true);
       clearCapturedLogs(); // Clear logs for next verification
-
+      
+      // Verify hold timer becomes visible and shows time
+      await verifyHoldTimer(page, true);
+      
       // Resume the call from hold
       await holdCallToggle(page);
       await page.waitForTimeout(2000);
@@ -143,6 +149,9 @@ test.describe('Basic Task Controls Tests', () => {
       // Verify resume callback logs
       verifyHoldLogs(false);
       clearCapturedLogs(); // Clear logs for next verification
+      
+      // Verify hold timer disappears when call is resumed
+      await verifyHoldTimer(page, false);
       
     } catch (error) {
       throw new Error(`Hold/Resume functionality verification failed: ${error.message}`);

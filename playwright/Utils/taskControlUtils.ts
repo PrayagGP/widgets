@@ -97,6 +97,31 @@ export async function recordCallToggle(page: Page): Promise<void> {
   await recordButton.click();
 }
 
+/**
+ * Verifies the hold timer visibility and content based on expected state.
+ * @param page - The agent's main page
+ * @param shouldBeVisible - Whether the timer should be visible (true) or hidden (false)
+ * @param verifyContent - Whether to verify timer content (default: true when visible)
+ * @returns Promise<void>
+ */
+export async function verifyHoldTimer(page: Page, shouldBeVisible: boolean, verifyContent: boolean = shouldBeVisible): Promise<void> {
+  const holdTimerContainer = page.locator('.on-hold-chip-text');
+  
+  if (shouldBeVisible) {
+    await expect(holdTimerContainer).toBeVisible({ timeout: 10000 });
+    
+    if (verifyContent) {
+      // Verify "On hold" text is present
+      await expect(holdTimerContainer).toContainText('On hold');
+      
+      // Verify timer format (should contain time like 00:XX)
+      await expect(holdTimerContainer).toContainText(/\d{2}:\d{2}/);
+    }
+  } else {
+    await expect(holdTimerContainer).toBeHidden({ timeout: 10000 });
+  }
+}
+
 // Global variable to store captured logs
 let capturedLogs: string[] = [];
 
