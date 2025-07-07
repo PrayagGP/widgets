@@ -17,7 +17,7 @@ import {
   acceptExtensionCall,
   endCallTask
 } from './Utils/incomingTaskUtils';
-import { callTaskControlCheck, chatTaskControlCheck, emailTaskControlCheck, holdCallToggle, recordCallToggle, setupConsoleLogging, clearCapturedLogs, verifyHoldLogs, verifyRecordingLogs, verifyEndLogs, verifyHoldTimer} from './Utils/taskControlUtils';
+import { callTaskControlCheck, chatTaskControlCheck, emailTaskControlCheck, holdCallToggle, recordCallToggle, setupConsoleLogging, clearCapturedLogs, verifyHoldLogs, verifyRecordingLogs, verifyEndLogs, verifyHoldTimer } from './Utils/taskControlUtils';
 import { submitWrapup } from './Utils/wrapupUtils';
 import { USER_STATES, LOGIN_MODE, TASK_TYPES, WRAPUP_REASONS } from './constants';
 
@@ -63,7 +63,7 @@ const pageSetup = async (page: Page, loginMode: string) => {
   // Setup console logging for callbacks
   setupConsoleLogging(page);
 };
-/*
+
 test.describe('Basic Task Controls Tests', () => {
   test.beforeEach(() => {
     clearCapturedLogs();
@@ -285,11 +285,11 @@ test.describe('Basic Task Controls Tests', () => {
       await submitWrapup(page, WRAPUP_REASONS.RESOLVED);
       await page.waitForTimeout(2000);
     } catch (error) {
-      throw new Error(`Email task control test failed: ${error.message}`);
+          throw new Error(`Email task control test failed: ${error.message}`);
     }
   });
 });
-*/
+
 test.describe('Multi-Session Task Controls Tests', () => {
   let session1Page: Page;
   let session2Page: Page;
@@ -387,7 +387,7 @@ test.describe('Multi-Session Task Controls Tests', () => {
     await session1Page.waitForTimeout(3000);
     await acceptExtensionCall(extensionPage);
     await session1Page.waitForTimeout(2000);
-    
+
     // Verify both AGENT1 sessions show engaged state
     await Promise.all([
       verifyCurrentState(session1Page, USER_STATES.ENGAGED),
@@ -439,7 +439,8 @@ test.describe('Multi-Session Task Controls Tests', () => {
       
       // Submit wrapup from session 1 (AGENT1)
       await submitWrapup(session1Page, WRAPUP_REASONS.RESOLVED);
-      
+      await session1Page.waitForTimeout(2000);
+
       // Verify both AGENT1 sessions return to available state
       await Promise.all([
         verifyCurrentState(session1Page, USER_STATES.AVAILABLE),
