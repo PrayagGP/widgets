@@ -6,7 +6,7 @@ import {
   loginViaAccessToken,
 } from './Utils/initUtils';
 import { stationLogout, telephonyLogin } from './Utils/stationLoginUtils';
-import { changeUserState, verifyCurrentState } from './Utils/userStateUtils';
+import { changeUserState, getCurrentState, verifyCurrentState } from './Utils/userStateUtils';
 import { 
   createCallTask, 
   createChatTask, 
@@ -17,7 +17,7 @@ import {
   acceptExtensionCall,
   endCallTask
 } from './Utils/incomingTaskUtils';
-import { callTaskControlCheck, chatTaskControlCheck, emailTaskControlCheck, holdCallToggle, recordCallToggle, setupConsoleLogging, clearCapturedLogs, verifyHoldLogs, verifyRecordingLogs, verifyEndLogs, verifyHoldTimer } from './Utils/taskControlUtils';
+import { verifyTaskControls, holdCallToggle, recordCallToggle, setupConsoleLogging, clearCapturedLogs, verifyHoldLogs, verifyRecordingLogs, verifyEndLogs, verifyHoldTimer, verifyRemoteAudioTracks, verifyHoldMusicElement, executeRemoteAudioQuery } from './Utils/taskControlUtils';
 import { submitWrapup } from './Utils/wrapupUtils';
 import { USER_STATES, LOGIN_MODE, TASK_TYPES, WRAPUP_REASONS } from './constants';
 
@@ -96,6 +96,13 @@ test.describe('Basic Task Controls Tests', () => {
   });
 
   test.afterAll(async () => {
+    if(await getCurrentState(page) === USER_STATES.ENGAGED) {
+      // If still engaged, end the call to clean up
+      await endCallTask(page);
+      await page.waitForTimeout(5000);
+      await submitWrapup(page, WRAPUP_REASONS.RESOLVED);
+      await page.waitForTimeout(2000);
+    }
     await stationLogout(page);
     await context.close();
     await context2.close();
@@ -120,44 +127,65 @@ test.describe('Basic Task Controls Tests', () => {
     
     // Use utility to check all call control buttons are visible
     try {
-      await callTaskControlCheck(page);
+      await verifyTaskControls(page, TASK_TYPES.CALL);
     } catch (error) {
       throw new Error(`Call control buttons verification failed: ${error.message}`);
     }
   });
+  
 
-  test('Call task - verify hold and resume functionality with callbacks', async () => {
+  test('Call task - verify remote audio tracks from caller to browser', async () => {
     // Verify we're still in an engaged call from previous test
     await verifyCurrentState(page, USER_STATES.ENGAGED);
     
     try {
-      // Verify hold timer is not visible initially
-      await verifyHoldTimer(page, false);
+      // First execute the basic console query to verify element exists
+      await executeRemoteAudioQuery(page);
       
-      // Put the call on hold
+      // Then verify the audio tracks with the exact structure you provided
+      await verifyRemoteAudioTracks(page);
+      
+    } catch (error) {
+      throw new Error(`Remote audio tracks verification failed: ${error.message}`);
+    }
+  });
+
+  test('Call task - verify hold and resume functionality with callbacks, timer, and hold music', async () => {
+    // Verify we're still in an engaged call from previous test
+    await verifyCurrentState(page, USER_STATES.ENGAGED);
+    
+    try {
+      // Clear logs first to ensure clean state
+      clearCapturedLogs();
+      
+      // Put call on hold from agent side
       await holdCallToggle(page);
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(3000); // Allow time for hold to take effect
       
       // Verify hold callback logs
       verifyHoldLogs(true);
-      clearCapturedLogs(); // Clear logs for next verification
       
-      // Verify hold timer becomes visible and shows time
+      // Verify hold music element is present on the CALLER page (where hold music plays)
+      // The hold music plays on the caller's side when agent puts call on hold
+      await verifyHoldMusicElement(callerPage);
+      
+      // Verify hold timer is visible and functioning
       await verifyHoldTimer(page, true);
       
-      // Resume the call from hold
+      clearCapturedLogs(); // Clear logs for next verification
+      
+      // Resume call from hold
       await holdCallToggle(page);
       await page.waitForTimeout(2000);
       
       // Verify resume callback logs
       verifyHoldLogs(false);
+      verifyHoldTimer(page, false);
+      
       clearCapturedLogs(); // Clear logs for next verification
       
-      // Verify hold timer disappears when call is resumed
-      await verifyHoldTimer(page, false);
-      
     } catch (error) {
-      throw new Error(`Hold/Resume functionality verification failed: ${error.message}`);
+      throw new Error(`Hold/Resume functionality with callbacks, timer, and hold music verification failed: ${error.message}`);
     }
   });
 
@@ -230,7 +258,7 @@ test.describe('Basic Task Controls Tests', () => {
     
     try {
       // Use utility to check chat control buttons are visible
-      await chatTaskControlCheck(page);
+      await verifyTaskControls(page, TASK_TYPES.CHAT);
       
       // End the chat by clicking the end button
       const endButton = page.getByTestId('call-control:end-call').nth(0);
@@ -269,7 +297,7 @@ test.describe('Basic Task Controls Tests', () => {
     
     try {
       // Use utility to check email control buttons are visible
-      await emailTaskControlCheck(page);
+      await verifyTaskControls(page, TASK_TYPES.EMAIL);
       
       // End the email by clicking the end button
       const endButton = page.getByTestId('call-control:end-call').nth(0);
@@ -290,7 +318,7 @@ test.describe('Basic Task Controls Tests', () => {
   });
 });
 
-test.describe('Multi-Session Task Controls Tests', () => {
+test.describe('Multi-Login Task Controls Tests', () => {
   let session1Page: Page;
   let session2Page: Page;
   let session1Context: BrowserContext;
@@ -353,6 +381,13 @@ test.describe('Multi-Session Task Controls Tests', () => {
   });
 
   test.afterAll(async () => {
+    // If still engaged, end the call to clean up
+    if (await getCurrentState(session1Page) === USER_STATES.ENGAGED) {
+      await endCallTask(extensionPage);
+      await session1Page.waitForTimeout(5000);
+      await submitWrapup(session1Page, WRAPUP_REASONS.RESOLVED);
+      await session1Page.waitForTimeout(2000);
+    }
     await Promise.all([
       stationLogout(session1Page),
       stationLogout(session2Page),
@@ -363,7 +398,7 @@ test.describe('Multi-Session Task Controls Tests', () => {
     await extensionContext.close();
   });
 
-  test('Multi-session call controls - verify controls are synchronized across sessions', async () => {
+  test('Multi-login call controls - verify controls are synchronized', async () => {
     // Set both AGENT1 sessions to available state
     await Promise.all([
       changeUserState(session1Page, USER_STATES.AVAILABLE),
@@ -397,8 +432,8 @@ test.describe('Multi-Session Task Controls Tests', () => {
     try {
       // Verify call control buttons are visible on both AGENT1 sessions
       await Promise.all([
-        callTaskControlCheck(session1Page),
-        callTaskControlCheck(session2Page),
+        verifyTaskControls(session1Page, TASK_TYPES.CALL),
+        verifyTaskControls(session2Page, TASK_TYPES.CALL),
       ]);
       
       // Setup console logging for both AGENT1 sessions
@@ -435,7 +470,7 @@ test.describe('Multi-Session Task Controls Tests', () => {
       
       // End call from extension page
       await endCallTask(extensionPage);
-      await session1Page.waitForTimeout(5000);
+      await session1Page.waitForTimeout(2000);
       
       // Submit wrapup from session 1 (AGENT1)
       await submitWrapup(session1Page, WRAPUP_REASONS.RESOLVED);

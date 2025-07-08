@@ -1,4 +1,5 @@
 import { Page, expect } from '@playwright/test';
+import { TASK_TYPES } from '../constants';
 
 /**
  * Utility functions for task controls testing.
@@ -65,6 +66,28 @@ export async function emailTaskControlCheck(page: Page): Promise<void> {
   
   // Verify end button is visible (for email tasks)
   await expect(page.getByTestId('call-control:end-call').nth(0)).toBeVisible();
+}
+
+/**
+ * Verifies task control buttons based on the task type.
+ * @param page - The agent's main page
+ * @param taskType - The type of the task (e.g., TASK_TYPES.CALL, TASK_TYPES.CHAT)
+ * @returns Promise<void>
+ */
+export async function verifyTaskControls(page: Page, taskType: string): Promise<void> {
+  switch (taskType) {
+    case TASK_TYPES.CALL:
+      await callTaskControlCheck(page);
+      break;
+    case TASK_TYPES.CHAT:
+      await chatTaskControlCheck(page);
+      break;
+    case TASK_TYPES.EMAIL:
+      await emailTaskControlCheck(page);
+      break;
+    default:
+      throw new Error(`Task control check not implemented for task type: ${taskType}`);
+  }
 }
 
 /**
@@ -220,5 +243,322 @@ export function verifyEndLogs(): void {
   
   if (endLogs.length === 0) {
     throw new Error(`No 'onEnd invoked' logs found. Captured logs: ${JSON.stringify(capturedLogs)}`);
+  }
+}
+
+/**
+ * Verifies that remote audio from another tab/participant is properly configured and ready to play.
+ * This function checks for the presence of the remote audio element, its properties, and MediaStream connection.
+ * @param page - The agent's main page
+ * @returns Promise<void>
+ * @throws Error if remote audio verification fails
+ */
+export async function verifyRemoteAudio(page: Page): Promise<void> {
+  try {
+    // Verify audio element properties using JavaScript evaluation
+    // Handle multiple audio elements with same ID by checking all of them
+    const audioProperties = await page.evaluate(() => {
+      const audioElements = document.querySelectorAll('#remote-audio') as NodeListOf<HTMLAudioElement>;
+      if (audioElements.length === 0) {
+        throw new Error('No remote audio elements found');
+      }
+      
+      const results: any[] = [];
+      let hasActiveStream = false;
+      
+      audioElements.forEach((audio, index) => {
+        const properties = {
+          elementIndex: index,
+          autoplay: audio.autoplay,
+          hasSourceObject: audio.srcObject !== null,
+          readyState: audio.readyState,
+          paused: audio.paused,
+          muted: audio.muted,
+          volume: audio.volume,
+          mediaStreamActive: audio.srcObject ? 
+            (audio.srcObject as MediaStream).active : false,
+          mediaStreamTracks: audio.srcObject ? 
+            (audio.srcObject as MediaStream).getTracks().length : 0,
+          audioTrackCount: audio.srcObject ? 
+            (audio.srcObject as MediaStream).getAudioTracks().length : 0
+        };
+        
+        results.push(properties);
+        
+        // Check if this element has an active stream
+        if (properties.hasSourceObject && properties.mediaStreamActive && properties.audioTrackCount > 0) {
+          hasActiveStream = true;
+        }
+      });
+      
+      return {
+        totalElements: audioElements.length,
+        elements: results,
+        hasActiveAudioStream: hasActiveStream
+      };
+    });
+    
+    // Verify at least one audio element exists
+    expect(audioProperties.totalElements).toBeGreaterThan(0);
+    
+    // Verify at least one audio element has an active MediaStream with audio tracks
+    expect(audioProperties.hasActiveAudioStream).toBe(true);
+    
+    // Verify properties of elements that have audio streams
+    const activeElements = audioProperties.elements.filter(el => 
+      el.hasSourceObject && el.mediaStreamActive && el.audioTrackCount > 0
+    );
+    
+    expect(activeElements.length).toBeGreaterThan(0);
+    
+    // For each active audio element, verify it's properly configured
+    activeElements.forEach((element, index) => {
+      
+      // Verify autoplay is enabled for remote audio
+      expect(element.autoplay).toBe(true);
+      
+      // Verify audio is not muted (should be able to hear remote audio)
+      expect(element.muted).toBe(false);
+      
+      // Verify volume is at audible level
+      expect(element.volume).toBeGreaterThan(0);
+    });
+    
+  } catch (error) {
+    throw new Error(`Remote audio verification failed: ${error.message}`);
+  }
+}
+
+/**
+ * Verifies the #remote-audio element exists in the DOM.
+ * Executes: document.querySelector("#remote-audio")
+ * @param page - The agent's main page (browser receiving audio)
+ * @returns Promise<void>
+ * @throws Error if remote audio element verification fails
+ */
+export async function verifyRemoteAudioElement(page: Page): Promise<void> {
+  try {
+    // Execute the console command to check for remote audio element
+    const elementResult = await page.evaluate(() => {
+      const audioElem = document.querySelector("#remote-audio") as HTMLAudioElement;
+      
+      if (!audioElem) {
+        return null;
+      }
+      
+      return {
+        tagName: audioElem.tagName,
+        id: audioElem.id,
+        autoplay: audioElem.autoplay,
+        muted: audioElem.muted,
+        volume: audioElem.volume,
+        readyState: audioElem.readyState,
+        paused: audioElem.paused,
+        hasSourceObject: audioElem.srcObject !== null,
+        outerHTML: audioElem.outerHTML.substring(0, 200) // First 200 chars for debugging
+      };
+    });
+    
+    if (!elementResult) {
+      throw new Error('❌ #remote-audio element not found in DOM');
+    }
+    
+    // Verify the element properties
+    expect(elementResult.tagName).toBe('AUDIO');
+    expect(elementResult.id).toBe('remote-audio');
+    expect(elementResult.hasSourceObject).toBe(true);
+    
+  } catch (error) {
+    throw new Error(`❌ Remote audio element verification failed: ${error.message}`);
+  }
+}
+
+/**
+ * Verifies audio transfer from caller to browser by executing the exact console command.
+ * Executes: document.querySelector("#remote-audio").srcObject.getAudioTracks()
+ * Verifies the result contains MediaStreamTrack with GUID label and proper properties
+ * @param page - The agent's main page (browser receiving audio)
+ * @returns Promise<void>
+ * @throws Error if remote audio tracks verification fails
+ */
+export async function verifyRemoteAudioTracks(page: Page): Promise<void> {
+  try {
+    // First verify the element exists
+    await verifyRemoteAudioElement(page);
+    
+    // Execute the exact console command for audio tracks
+    const consoleResult = await page.evaluate(() => {
+      // This is the exact command from your console
+      const audioElem = document.querySelector("#remote-audio") as HTMLAudioElement;
+      const result = audioElem && audioElem.srcObject ? (audioElem.srcObject as MediaStream).getAudioTracks() : [];
+      
+      // Convert MediaStreamTrack objects to serializable format (like console shows)
+      return result.map((track, index) => ({
+        index,
+        kind: track.kind,
+        id: track.id,
+        label: track.label,
+        enabled: track.enabled,
+        muted: track.muted,
+        readyState: track.readyState,
+        onended: track.onended,
+        onmute: track.onmute,
+        onunmute: track.onunmute
+      }));
+    });
+    
+    // Verify we got an array with at least one MediaStreamTrack
+    expect(consoleResult.length).toBeGreaterThanOrEqual(1);
+    
+    // Find the first audio track (should match the structure you provided)
+    const audioTrack = consoleResult.find(track => track.kind === 'audio');
+    
+    if (!audioTrack) {
+      const availableTracks = consoleResult.map(t => `{ kind: "${t.kind}", label: "${t.label}", id: "${t.id}" }`).join(', ');
+      throw new Error(`❌ No audio MediaStreamTrack found. Available tracks: [${availableTracks}]`);
+    }
+    
+    // Verify the track properties match the exact structure you provided
+    expect(audioTrack.kind).toBe('audio');
+    expect(audioTrack.enabled).toBe(true);
+    expect(audioTrack.muted).toBe(false);
+    expect(audioTrack.readyState).toBe('live');
+    expect(audioTrack.onended).toBeNull();
+    expect(audioTrack.onmute).toBeNull();
+    expect(audioTrack.onunmute).toBeNull();
+    
+    // Verify both id and label are GUID format and match each other
+    const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    expect(guidPattern.test(audioTrack.id)).toBe(true);
+    expect(guidPattern.test(audioTrack.label)).toBe(true);
+    expect(audioTrack.id).toBe(audioTrack.label); // id should match label exactly
+    
+    // Verify index is 0 (first track)
+    expect(audioTrack.index).toBe(0);
+    
+  } catch (error) {
+    throw new Error(`❌ Audio transfer verification failed: ${error.message}`);
+  }
+}
+
+/**
+ * Verifies the presence of hold music audio element exactly as shown in DOM inspection screenshot.
+ * Looks for: <audio autoplay="" loop="" src="/./static/sounds/Ringback-*.mp3"></audio>
+ * This is checked on the caller page when call is put on hold
+ * @param page - The caller's page (where hold music should be playing)
+ * @returns Promise<void>
+ * @throws Error if hold music element verification fails
+ */
+export async function verifyHoldMusicElement(page: Page): Promise<void> {
+  try {
+    const holdMusicInfo = await page.evaluate(() => {
+      // Look for audio elements with Ringback in src (as shown in screenshot)
+      const audioElements = document.querySelectorAll('audio[src*="Ringback"]');
+      
+      if (audioElements.length === 0) {
+        // Debug: Show all audio elements if Ringback not found
+        const allAudioElements = document.querySelectorAll('audio');
+        const allSources = Array.from(allAudioElements).map(audio => ({
+          src: audio.src,
+          autoplay: audio.autoplay,
+          loop: audio.loop,
+          outerHTML: audio.outerHTML.substring(0, 200) // Show first 200 chars
+        }));
+        return {
+          ringbackFound: false,
+          allAudioElements: allSources,
+          totalAudioElements: allAudioElements.length
+        };
+      }
+      
+      // Map the Ringback audio elements (as shown in screenshot)
+      const ringbackElements = Array.from(audioElements).map((audio: HTMLAudioElement, index) => ({
+        index,
+        src: audio.src,
+        autoplay: audio.autoplay,
+        loop: audio.loop,
+        paused: audio.paused,
+        volume: audio.volume,
+        muted: audio.muted,
+        readyState: audio.readyState,
+        outerHTML: audio.outerHTML // Full element structure
+      }));
+      
+      return {
+        ringbackFound: true,
+        ringbackElements,
+        totalRingbackElements: ringbackElements.length
+      };
+    });
+    
+    if (!holdMusicInfo.ringbackFound) {
+      throw new Error(`❌ No hold music audio elements found. Total audio elements: ${holdMusicInfo.totalAudioElements}. All audio sources: ${JSON.stringify(holdMusicInfo.allAudioElements, null, 2)}`);
+    }
+    
+    // Verify at least one hold music element exists
+    expect(holdMusicInfo.totalRingbackElements).toBeGreaterThan(0);
+    
+    // Find the element that matches the exact pattern from your screenshot
+    const targetElement = holdMusicInfo.ringbackElements.find(audio => 
+      audio.src.includes('Ringback') && 
+      audio.src.includes('.mp3') &&
+      audio.autoplay === true &&
+      audio.loop === true
+    );
+    
+    if (!targetElement) {
+      throw new Error(`❌ Hold music element with correct properties not found. Available elements: ${JSON.stringify(holdMusicInfo.ringbackElements, null, 2)}`);
+    }
+    
+    // Verify the element matches exactly what's shown in your DOM inspection screenshot
+    expect(targetElement.autoplay).toBe(true);
+    expect(targetElement.loop).toBe(true);
+    expect(targetElement.src).toContain('Ringback');
+    expect(targetElement.src).toContain('.mp3');
+    
+  } catch (error) {
+    throw new Error(`❌ Hold music element verification failed: ${error.message}`);
+  }
+}
+
+/**
+ * Executes the exact console command: document.querySelector("#remote-audio")
+ * This verifies that the remote audio element exists in the DOM
+ * @param page - The agent's main page (browser receiving audio)
+ * @returns Promise<void>
+ * @throws Error if remote audio element is not found
+ */
+export async function executeRemoteAudioQuery(page: Page): Promise<void> {
+  try {
+    // Execute the exact console command
+    const elementExists = await page.evaluate(() => {
+      const element = document.querySelector("#remote-audio");
+      
+      if (!element) {
+        return null;
+      }
+      
+      // Return basic element info to verify it exists
+      return {
+        tagName: element.tagName,
+        id: element.id,
+        className: element.className,
+        nodeType: element.nodeType,
+        exists: true
+      };
+    });
+    
+    if (!elementExists) {
+      throw new Error('❌ document.querySelector("#remote-audio") returned null - element not found in DOM');
+    }
+    
+    // Verify basic properties
+    expect(elementExists.exists).toBe(true);
+    expect(elementExists.tagName).toBe('AUDIO');
+    expect(elementExists.id).toBe('remote-audio');
+    expect(elementExists.nodeType).toBe(1); // ELEMENT_NODE
+    
+  } catch (error) {
+    throw new Error(`❌ Remote audio element query failed: ${error.message}`);
   }
 }
