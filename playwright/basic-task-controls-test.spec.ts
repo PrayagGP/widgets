@@ -17,7 +17,7 @@ import {
   acceptExtensionCall,
   endCallTask
 } from './Utils/incomingTaskUtils';
-import { verifyTaskControls, holdCallToggle, recordCallToggle, setupConsoleLogging, clearCapturedLogs, verifyHoldLogs, verifyRecordingLogs, verifyEndLogs, verifyHoldTimer, verifyRemoteAudioTracks, verifyHoldMusicElement, executeRemoteAudioQuery } from './Utils/taskControlUtils';
+import { verifyTaskControls, holdCallToggle, recordCallToggle, setupConsoleLogging, clearCapturedLogs, verifyHoldLogs, verifyRecordingLogs, verifyEndLogs, verifyHoldTimer, verifyRemoteAudioTracks, verifyHoldMusicElement, executeRemoteAudioQuery, endTask } from './Utils/taskControlUtils';
 import { submitWrapup } from './Utils/wrapupUtils';
 import { USER_STATES, LOGIN_MODE, TASK_TYPES, WRAPUP_REASONS } from './constants';
 
@@ -98,8 +98,8 @@ test.describe('Basic Task Controls Tests', () => {
   test.afterAll(async () => {
     if(await getCurrentState(page) === USER_STATES.ENGAGED) {
       // If still engaged, end the call to clean up
-      await endCallTask(page);
-      await page.waitForTimeout(5000);
+      await endTask(page);
+      await page.waitForTimeout(3000);
       await submitWrapup(page, WRAPUP_REASONS.RESOLVED);
       await page.waitForTimeout(2000);
     }
@@ -221,9 +221,7 @@ test.describe('Basic Task Controls Tests', () => {
     
     try {
       // End the call by clicking the end button
-      const endButton = page.getByTestId('call-control:end-call').nth(0);
-      await endButton.waitFor({ state: 'visible', timeout: 30000 });
-      await endButton.click();
+      await endTask(page);
       await page.waitForTimeout(3000);
       
       // Verify onEnd callback logs
@@ -261,9 +259,7 @@ test.describe('Basic Task Controls Tests', () => {
       await verifyTaskControls(page, TASK_TYPES.CHAT);
       
       // End the chat by clicking the end button
-      const endButton = page.getByTestId('call-control:end-call').nth(0);
-      await endButton.waitFor({ state: 'visible', timeout: 30000 });
-      await endButton.click();
+      await endTask(page);
       await page.waitForTimeout(3000);
       
       // Verify onEnd callback logs
@@ -300,9 +296,7 @@ test.describe('Basic Task Controls Tests', () => {
       await verifyTaskControls(page, TASK_TYPES.EMAIL);
       
       // End the email by clicking the end button
-      const endButton = page.getByTestId('call-control:end-call').nth(0);
-      await endButton.waitFor({ state: 'visible', timeout: 30000 });
-      await endButton.click();
+      await endTask(page);
       await page.waitForTimeout(3000);
       
       // Verify onEnd callback logs
@@ -383,7 +377,7 @@ test.describe('Multi-Login Task Controls Tests', () => {
   test.afterAll(async () => {
     // If still engaged, end the call to clean up
     if (await getCurrentState(session1Page) === USER_STATES.ENGAGED) {
-      await endCallTask(extensionPage);
+      await endTask(session1Page);
       await session1Page.waitForTimeout(5000);
       await submitWrapup(session1Page, WRAPUP_REASONS.RESOLVED);
       await session1Page.waitForTimeout(2000);

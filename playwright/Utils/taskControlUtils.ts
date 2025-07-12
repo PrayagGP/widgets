@@ -562,3 +562,15 @@ export async function executeRemoteAudioQuery(page: Page): Promise<void> {
     throw new Error(`❌ Remote audio element query failed: ${error.message}`);
   }
 }
+
+/**
+ * Ends a task by clicking the end call button and waiting for it to be visible.
+ * This function can be used for any task type (call, chat, email) as they all use the same end button.
+ * @param page - The agent's main page
+ * @returns Promise<void>
+ */
+export async function endTask(page: Page): Promise<void> {
+  const endButton = page.getByTestId('call-control:end-call').nth(0);
+  await endButton.waitFor({ state: 'visible', timeout: 30000 });
+  await endButton.click();
+}
