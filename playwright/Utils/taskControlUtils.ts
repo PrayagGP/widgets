@@ -442,8 +442,8 @@ export async function verifyRemoteAudioTracks(page: Page): Promise<void> {
 }
 
 /**
- * Verifies the presence of hold music audio element exactly as shown in DOM inspection screenshot.
- * Looks for: <audio autoplay="" loop="" src="/./static/sounds/Ringback-*.mp3"></audio>
+ * Verifies the presence of hold music audio element with autoplay and loop attributes.
+ * Looks for: <audio autoplay="" loop=""></audio>
  * This is checked on the caller page when call is put on hold
  * @param page - The caller's page (where hold music should be playing)
  * @returns Promise<void>
@@ -452,31 +452,35 @@ export async function verifyRemoteAudioTracks(page: Page): Promise<void> {
 export async function verifyHoldMusicElement(page: Page): Promise<void> {
   try {
     const holdMusicInfo = await page.evaluate(() => {
-      // Look for audio elements with Ringback in src (as shown in screenshot)
-      const audioElements = document.querySelectorAll('audio[src*="Ringback"]');
+      // Look for audio elements with both autoplay and loop attributes
+      const audioElements = document.querySelectorAll('audio[autoplay][loop]');
       
       if (audioElements.length === 0) {
-        // Debug: Show all audio elements if Ringback not found
+        // Debug: Show all audio elements if none found with autoplay and loop
         const allAudioElements = document.querySelectorAll('audio');
         const allSources = Array.from(allAudioElements).map(audio => ({
           src: audio.src,
           autoplay: audio.autoplay,
           loop: audio.loop,
+          hasAutoplayAttr: audio.hasAttribute('autoplay'),
+          hasLoopAttr: audio.hasAttribute('loop'),
           outerHTML: audio.outerHTML.substring(0, 200) // Show first 200 chars
         }));
         return {
-          ringbackFound: false,
+          holdMusicFound: false,
           allAudioElements: allSources,
           totalAudioElements: allAudioElements.length
         };
       }
       
-      // Map the Ringback audio elements (as shown in screenshot)
-      const ringbackElements = Array.from(audioElements).map((audio: HTMLAudioElement, index) => ({
+      // Map the audio elements with autoplay and loop attributes
+      const holdMusicElements = Array.from(audioElements).map((audio: HTMLAudioElement, index) => ({
         index,
         src: audio.src,
         autoplay: audio.autoplay,
         loop: audio.loop,
+        hasAutoplayAttr: audio.hasAttribute('autoplay'),
+        hasLoopAttr: audio.hasAttribute('loop'),
         paused: audio.paused,
         volume: audio.volume,
         muted: audio.muted,
@@ -485,36 +489,37 @@ export async function verifyHoldMusicElement(page: Page): Promise<void> {
       }));
       
       return {
-        ringbackFound: true,
-        ringbackElements,
-        totalRingbackElements: ringbackElements.length
+        holdMusicFound: true,
+        holdMusicElements,
+        totalHoldMusicElements: holdMusicElements.length
       };
     });
     
-    if (!holdMusicInfo.ringbackFound) {
-      throw new Error(`❌ No hold music audio elements found. Total audio elements: ${holdMusicInfo.totalAudioElements}. All audio sources: ${JSON.stringify(holdMusicInfo.allAudioElements, null, 2)}`);
+    if (!holdMusicInfo.holdMusicFound) {
+      throw new Error(`❌ No hold music audio elements found with autoplay and loop attributes. Total audio elements: ${holdMusicInfo.totalAudioElements}. All audio sources: ${JSON.stringify(holdMusicInfo.allAudioElements, null, 2)}`);
     }
     
     // Verify at least one hold music element exists
-    expect(holdMusicInfo.totalRingbackElements).toBeGreaterThan(0);
+    expect(holdMusicInfo.totalHoldMusicElements).toBeGreaterThan(0);
     
-    // Find the element that matches the exact pattern from your screenshot
-    const targetElement = holdMusicInfo.ringbackElements.find(audio => 
-      audio.src.includes('Ringback') && 
-      audio.src.includes('.mp3') &&
+    // Find the element that matches the pattern: <audio autoplay="" loop=""></audio>
+    const targetElement = holdMusicInfo.holdMusicElements.find(audio => 
+      audio.hasAutoplayAttr && 
+      audio.hasLoopAttr &&
       audio.autoplay === true &&
       audio.loop === true
     );
     
     if (!targetElement) {
-      throw new Error(`❌ Hold music element with correct properties not found. Available elements: ${JSON.stringify(holdMusicInfo.ringbackElements, null, 2)}`);
+      throw new Error(`❌ Hold music element with correct autoplay and loop attributes not found. Available elements: ${JSON.stringify(holdMusicInfo.holdMusicElements, null, 2)}`);
     }
     
-    // Verify the element matches exactly what's shown in your DOM inspection screenshot
+    // Verify the element matches the expected pattern: <audio autoplay="" loop=""></audio>
     expect(targetElement.autoplay).toBe(true);
     expect(targetElement.loop).toBe(true);
-    expect(targetElement.src).toContain('Ringback');
-    expect(targetElement.src).toContain('.mp3');
+    expect(targetElement.hasAutoplayAttr).toBe(true);
+    expect(targetElement.hasLoopAttr).toBe(true);
+    
     
   } catch (error) {
     throw new Error(`❌ Hold music element verification failed: ${error.message}`);

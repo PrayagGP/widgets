@@ -167,11 +167,11 @@ export async function consultViaAgent(page: Page, agentName: string = 'User2 Age
   // Navigate to Agents tab
   await page.getByRole('tab', { name: 'Agents' }).click();
 
-  //hover over the agent name
-  await page.getByRole('listitem', { name: agentName }).hover();
+  //hover over the agent name - use exact match to avoid confusion with similar names
+  await page.getByRole('listitem', { name: agentName, exact: true }).hover();
 
   // Select the specific agent
-  await page.getByRole('listitem', { name: agentName }).getByRole('button').click();
+  await page.getByRole('listitem', { name: agentName, exact: true }).getByRole('button').click();
   
   // Wait a moment for the consult to be initiated
   await page.waitForTimeout(2000);
@@ -183,18 +183,18 @@ export async function consultViaAgent(page: Page, agentName: string = 'User2 Age
  * @param queueName - Name of the queue to consult with (e.g., 'Customer Service Queue')
  * @returns Promise<void>
  */
-export async function consultViaQueue(page: Page, queueName: string = 'Customer Service Queue'): Promise<void> {
+export async function consultViaQueue(page: Page, queueName: string): Promise<void> {
   // Click consult with another agent button
   await page.getByTestId('call-control:consult').nth(1).click();
   
   // Navigate to Queues tab
   await page.getByRole('tab', { name: 'Queues' }).click();
 
-  // Hover over the queue name
-  await page.getByRole('listitem', { name: queueName }).hover();
+  // Hover over the queue name - use exact match to avoid confusion with similar names
+  await page.getByRole('listitem', { name: queueName, exact: true }).hover();
 
   // Select the specific queue
-  await page.getByRole('listitem', { name: queueName }).getByRole('button').click();
+  await page.getByRole('listitem', { name: queueName, exact: true }).getByRole('button').click();
   
   // Wait a moment for the consult to be initiated
   await page.waitForTimeout(2000);
@@ -226,11 +226,11 @@ export async function transferViaAgent(page: Page, agentName: string = 'User2 Ag
   // Navigate to Agents tab
   await page.getByRole('tab', { name: 'Agents' }).click();
   
-  // Hover over the agent name
-  await page.getByRole('listitem', { name: agentName }).hover();
+  // Hover over the agent name - use exact match to avoid confusion with similar names
+  await page.getByRole('listitem', { name: agentName, exact: true }).hover();
   
   // Select the specific agent
-  await page.getByRole('listitem', { name: agentName }).getByRole('button').click();
+  await page.getByRole('listitem', { name: agentName, exact: true }).getByRole('button').click();
   
   // Wait a moment for the transfer to be processed
   await page.waitForTimeout(2000);
@@ -242,21 +242,19 @@ export async function transferViaAgent(page: Page, agentName: string = 'User2 Ag
  * @param queueName - Name of the queue to transfer to (e.g., 'Customer Service Queue')
  * @returns Promise<void>
  */
-export async function transferViaQueue(page: Page, queueName: string = 'Customer Service Queue'): Promise<void> {
+export async function transferViaQueue(page: Page, queueName: string): Promise<void> {
   // Click transfer call button
   await page.getByRole('group', { name: 'Call Control with Call' }).getByLabel('Transfer Call').click();
   
   // Navigate to Queues tab
   await page.getByRole('tab', { name: 'Queues' }).click();
   
-  // Hover over the queue name
-  await page.getByRole('listitem', { name: queueName }).hover();
+  // Hover over the queue name - use exact match to avoid confusion with similar names
+  await page.getByRole('listitem', { name: queueName, exact: true }).hover();
   
   // Select the specific queue
-  await page.getByRole('listitem', { name: queueName }).getByRole('button').click();
-  
-  // Complete the transfer (click the main transfer button)
-  await page.getByRole('group', { name: 'Call Control with Call' }).getByRole('button').click();
+  await page.getByRole('listitem', { name: queueName, exact: true }).getByRole('button').click();
+
   
   // Wait a moment for the transfer to be processed
   await page.waitForTimeout(2000);
@@ -287,53 +285,4 @@ export async function transferAfterConsult(page: Page, agentName: string = 'User
 export async function endConsult(page: Page): Promise<void> {
   // End the consult (this should return focus to the original call)
   await page.getByRole('group', { name: 'Call Control with Call' }).getByRole('button').click();
-}
-
-/**
- * Accepts an incoming consult or transfer request.
- * This is the same as accepting any incoming task.
- * @param page - The agent's page receiving the consult/transfer
- * @returns Promise<void>
- */
-export async function acceptIncomingConsultOrTransfer(page: Page): Promise<void> {
-  // Accept the incoming consult/transfer request
-  await page.getByRole('button', { name: 'Accept' }).first().click();
-}
-
-/**
- * Declines an incoming consult or transfer request.
- * This is the same as declining any incoming task.
- * @param page - The agent's page receiving the consult/transfer
- * @returns Promise<void>
- */
-export async function declineIncomingConsultOrTransfer(page: Page): Promise<void> {
-  // Decline the incoming consult/transfer request
-  await page.getByRole('button', { name: 'Decline' }).first().click();
-}
-
-/**
- * Completes wrapup after a consult or transfer operation.
- * @param page - The agent's main page
- * @param wrapupReason - The reason for wrapup (defaults to 'Sale')
- * @returns Promise<void>
- */
-export async function completeWrapupAfterConsultOrTransfer(page: Page, wrapupReason: string = WRAPUP_REASONS.SALE): Promise<void> {
-  // Open wrapup dialog
-  await page.getByRole('dialog', { name: 'Wrap up' }).locator('#select-base-triggerid').click();
-  
-  // Select wrapup reason
-  await page.getByRole('option', { name: wrapupReason, exact: true }).click();
-  
-  // Submit wrapup
-  await page.getByTestId('submit-wrapup-button').click();
-}
-
-/**
- * Dismisses any open popover or backdrop that might be blocking UI interactions.
- * @param page - The agent's main page
- * @returns Promise<void>
- */
-export async function dismissPopover(page: Page): Promise<void> {
-  // Click the popover backdrop to dismiss any open popovers
-  await page.locator('.md-popover-backdrop').click();
 }

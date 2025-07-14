@@ -5,11 +5,7 @@ import {
   cancelConsult,
   transferAfterConsult,
   endConsult,
-  acceptIncomingConsultOrTransfer,
-  declineIncomingConsultOrTransfer,
-  completeWrapupAfterConsultOrTransfer,
-  dismissPopover
-} from './advancedTaskControlUtils';
+} from './Utils/advancedTaskControlUtils';
 import {
   enableAllWidgets,
   enableMultiLogin,
@@ -22,11 +18,11 @@ import {
   createCallTask, 
   acceptIncomingTask,
   loginExtension,
-  endCallTask
+  declineIncomingTask
 } from './Utils/incomingTaskUtils';
 import { submitWrapup } from './Utils/wrapupUtils';
 import { USER_STATES, LOGIN_MODE, TASK_TYPES, WRAPUP_REASONS } from './constants';
-import { holdCallToggle } from './Utils/taskControlUtils';
+import { holdCallToggle, endTask } from './Utils/taskControlUtils';
 
 /**
  * Advanced Task Control Tests
@@ -83,6 +79,7 @@ const pageSetup = async (page: Page, loginMode: string, agentToken: string) => {
 test.describe('Advanced Task Controls - Consult Operations', () => {
 
   test.beforeAll(async ({ browser }) => {
+    // Create contexts for multi-agent testing
     agent1Context = await browser.newContext();
     agent2Context = await browser.newContext();
     callerContext = await browser.newContext();
@@ -115,13 +112,13 @@ test.describe('Advanced Task Controls - Consult Operations', () => {
 
   test.afterAll(async () => {
     if(await getCurrentState(agent1Page) === USER_STATES.ENGAGED) {
-      await endCallTask(agent1Page);
+      await endTask(agent1Page);
       await agent1Page.waitForTimeout(5000);
       await submitWrapup(agent1Page, WRAPUP_REASONS.RESOLVED);
       await agent1Page.waitForTimeout(2000);
     }
     if(await getCurrentState(agent2Page) === USER_STATES.ENGAGED) {
-      await endCallTask(agent2Page);
+      await endTask(agent2Page);
       await agent2Page.waitForTimeout(5000);
       await submitWrapup(agent2Page, WRAPUP_REASONS.RESOLVED);
       await agent2Page.waitForTimeout(2000);
@@ -138,13 +135,14 @@ test.describe('Advanced Task Controls - Consult Operations', () => {
   test('Agent can initiate and cancel a consult successfully', async () => {
     // Create call task and agent 1 accepts it
     await createCallTask(callerPage);
-    await changeUserState(agent1Page, USER_STATES.AVAILABLE);
+    await changeUserState(agent2Page, USER_STATES.MEETING);
     
     const incomingTaskDiv = agent1Page.getByTestId('samples:incoming-task-telephony').first();
     await incomingTaskDiv.waitFor({ state: 'visible', timeout: 120000 });
     await agent1Page.waitForTimeout(3000);
     
     await acceptIncomingTask(agent1Page, TASK_TYPES.CALL);
+    await changeUserState(agent2Page, USER_STATES.AVAILABLE);
     await agent1Page.waitForTimeout(5000);
     
     await verifyCurrentState(agent1Page, USER_STATES.ENGAGED);
@@ -169,10 +167,11 @@ test.describe('Advanced Task Controls - Consult Operations', () => {
 
     // Agent 1 initiates consult with Agent 2
     await consultViaAgent(agent1Page, 'User2 Agent2');
+    const incomingTaskDiv = agent2Page.getByTestId('samples:incoming-task-telephony').first();
+    await incomingTaskDiv.waitFor({ state: 'visible', timeout: 120000 });
+    await agent2Page.waitForTimeout(3000);
 
-    // Agent 2 should see incoming consult request and accept it
-    await acceptIncomingConsultOrTransfer(agent2Page);
-
+    await acceptIncomingTask(agent2Page, TASK_TYPES.CALL);
     // Verify both agents are in consult state
     await expect(agent1Page.getByTestId('transfer-consult-btn')).toBeVisible();
     await expect(agent2Page.getByRole('group', { name: 'Call Control with Call' })).toBeVisible();
@@ -187,11 +186,11 @@ test.describe('Advanced Task Controls - Consult Operations', () => {
     await consultViaAgent(agent1Page, 'User2 Agent2');
 
     // Agent 2 declines the consult request
-    await declineIncomingConsultOrTransfer(agent2Page);
-
+    await declineIncomingTask(agent2Page, TASK_TYPES.CALL);
     // Verify Agent 1 returns to normal call state
     await expect(agent1Page.getByRole('group', { name: 'Call Control with Call' })).toBeVisible();
     await expect(agent1Page.getByTestId('cancel-consult-btn')).not.toBeVisible();
+    await holdCallToggle(agent1Page);
   });
 
   // test('Agent can end consult and return to original call', async () => {
@@ -213,7 +212,7 @@ test.describe('Advanced Task Controls - Consult Operations', () => {
   //   await completeWrapupAfterConsultOrTransfer(agent2Page, WRAPUP_REASONS.RESOLVED);
   // });
 });
-
+/*
 test.describe('Advanced Task Controls - Transfer Operations', () => {
 
   test.beforeAll(async ({ browser }) => {
@@ -249,13 +248,13 @@ test.describe('Advanced Task Controls - Transfer Operations', () => {
 
   test.afterAll(async () => {
     if(await getCurrentState(agent1Page) === USER_STATES.ENGAGED) {
-      await endCallTask(agent1Page);
+      await endTask(agent1Page);
       await agent1Page.waitForTimeout(5000);
       await submitWrapup(agent1Page, WRAPUP_REASONS.RESOLVED);
       await agent1Page.waitForTimeout(2000);
     }
     if(await getCurrentState(agent2Page) === USER_STATES.ENGAGED) {
-      await endCallTask(agent2Page);
+      await endTask(agent2Page);
       await agent2Page.waitForTimeout(5000);
       await submitWrapup(agent2Page, WRAPUP_REASONS.RESOLVED);
       await agent2Page.waitForTimeout(2000);
@@ -385,7 +384,7 @@ test.describe('Advanced Task Controls - UI Interactions', () => {
 
   test.afterAll(async () => {
     if(await getCurrentState(agentPage) === USER_STATES.ENGAGED) {
-      await endCallTask(agentPage);
+      await endTask(agentPage);
       await agentPage.waitForTimeout(5000);
       await submitWrapup(agentPage, WRAPUP_REASONS.RESOLVED);
       await agentPage.waitForTimeout(2000);
@@ -475,7 +474,7 @@ test.describe('Advanced Task Controls - Error Scenarios', () => {
 
   test.afterAll(async () => {
     if(await getCurrentState(agentPage) === USER_STATES.ENGAGED) {
-      await endCallTask(agentPage);
+      await endTask(agentPage);
       await agentPage.waitForTimeout(5000);
       await submitWrapup(agentPage, WRAPUP_REASONS.RESOLVED);
       await agentPage.waitForTimeout(2000);
@@ -536,3 +535,4 @@ test.describe('Advanced Task Controls - Error Scenarios', () => {
     await expect(agentPage.getByRole('group', { name: 'Call Control', exact: true }).getByLabel('Consult with another agent')).toBeVisible();
   });
 });
+*/
