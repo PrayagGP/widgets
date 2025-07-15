@@ -57,8 +57,6 @@ export function verifyTransferSuccessLogs(): void {
   if (transferLogs.length === 0) {
     throw new Error(`No 'WXCC_SDK_TASK_TRANSFER_SUCCESS' logs found. Captured logs: ${JSON.stringify(capturedAdvancedLogs)}`);
   }
-  
-  console.log(`✅ Transfer success verified: ${transferLogs[transferLogs.length - 1]}`);
 }
 
 /**
@@ -71,8 +69,6 @@ export function verifyConsultStartSuccessLogs(): void {
   if (consultStartLogs.length === 0) {
     throw new Error(`No 'WXCC_SDK_TASK_CONSULT_START_SUCCESS' logs found. Captured logs: ${JSON.stringify(capturedAdvancedLogs)}`);
   }
-  
-  console.log(`✅ Consult start success verified: ${consultStartLogs[consultStartLogs.length - 1]}`);
 }
 
 /**
@@ -85,8 +81,6 @@ export function verifyConsultEndSuccessLogs(): void {
   if (consultEndLogs.length === 0) {
     throw new Error(`No 'WXCC_SDK_TASK_CONSULT_END_SUCCESS' logs found. Captured logs: ${JSON.stringify(capturedAdvancedLogs)}`);
   }
-  
-  console.log(`✅ Consult end success verified: ${consultEndLogs[consultEndLogs.length - 1]}`);
 }
 
 /**
@@ -99,8 +93,6 @@ export function verifyConsultFailedLogs(): void {
   if (consultFailedLogs.length === 0) {
     throw new Error(`No 'AgentConsultFailed' logs found. Captured logs: ${JSON.stringify(capturedAdvancedLogs)}`);
   }
-  
-  console.log(`✅ Consult failed verified: ${consultFailedLogs[consultFailedLogs.length - 1]}`);
 }
 
 /**
@@ -113,8 +105,6 @@ export function verifyConsultTransferredLogs(): void {
   if (consultTransferredLogs.length === 0) {
     throw new Error(`No 'AgentConsultTransferred' logs found. Captured logs: ${JSON.stringify(capturedAdvancedLogs)}`);
   }
-  
-  console.log(`✅ Consult transferred verified: ${consultTransferredLogs[consultTransferredLogs.length - 1]}`);
 }
 
 /**
@@ -127,8 +117,6 @@ export function verifyAdvancedEndLogs(): void {
   if (endLogs.length === 0) {
     throw new Error(`No 'onEnd invoked' logs found. Captured logs: ${JSON.stringify(capturedAdvancedLogs)}`);
   }
-  
-  console.log(`✅ End callback verified: ${endLogs[endLogs.length - 1]}`);
 }
 
 /**
@@ -143,8 +131,6 @@ export function verifySpecificLog(logMessage: string, description: string): void
   if (matchingLogs.length === 0) {
     throw new Error(`No '${logMessage}' logs found. Expected: ${description}. Captured logs: ${JSON.stringify(capturedAdvancedLogs)}`);
   }
-  
-  console.log(`✅ ${description} verified: ${matchingLogs[matchingLogs.length - 1]}`);
 }
 
 /**
