@@ -194,10 +194,7 @@ export async function consultViaQueue(page: Page, queueName: string): Promise<vo
 export async function cancelConsult(page: Page): Promise<void> {
   // Click cancel consult button
   await page.getByTestId('cancel-consult-btn').click();
-  
-  // Resume the original call
-  await page.getByRole('group', { name: 'Call Control with Call' }).getByLabel('Resume the call').click();
-}
+  }
 
 /**
  * Initiates a transfer via the agents tab (without prior consult).
@@ -241,7 +238,6 @@ export async function transferViaQueue(page: Page, queueName: string): Promise<v
   // Select the specific queue
   await page.getByRole('listitem', { name: queueName, exact: true }).getByRole('button').click();
 
-  
   // Wait a moment for the transfer to be processed
   await page.waitForTimeout(2000);
 }
@@ -258,9 +254,6 @@ export async function transferAfterConsult(page: Page, agentName: string = 'User
   
   // Then transfer the consult
   await page.getByTestId('transfer-consult-btn').click();
-  
-  // Complete the transfer
-  await page.getByRole('group', { name: 'Call Control with Call' }).getByRole('button').click();
 }
 
 /**
@@ -270,5 +263,5 @@ export async function transferAfterConsult(page: Page, agentName: string = 'User
  */
 export async function endConsult(page: Page): Promise<void> {
   // End the consult (this should return focus to the original call)
-  await page.getByRole('group', { name: 'Call Control with Call' }).getByRole('button').click();
+  await page.getByRole('group', { name: 'Call Control with Call' }).getByRole('button').nth(0).click();
 }
